@@ -17,18 +17,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 
 
 public class Viewer extends Activity
@@ -120,6 +116,23 @@ public class Viewer extends Activity
      * A placeholder fragment containing a simple view.
      */
     public static class PlaceholderFragment extends Fragment {
+        public class DataThread implements Runnable {
+            private URL url;
+            volatile JSONObject data = null;
+
+            public DataThread(URL _url) {
+                url = _url;
+            }
+
+            @Override
+            public void run() {
+                try {
+                    data = (JSONObject) url.getContent();
+                } catch (IOException e) {
+                    Log.e("XKCD Reader", "Error while fetching image", e);
+                } //Popup with error
+            }
+        }
         /**
          * The fragment argument representing the section number for this
          * fragment.
@@ -159,7 +172,7 @@ public class Viewer extends Activity
                     getArguments().getInt(ARG_SECTION_NUMBER));
             String protoURL = "https://xkcdapi.heroku.com/api";
             try {
-                switch (Integer.parseInt(ARG_SECTION_NUMBER)) {
+                switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
                     case 1:
                         protoURL += "/xkcd";
                         break;
@@ -174,50 +187,69 @@ public class Viewer extends Activity
                 url = new URL(protoURL);
             } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
 
+            DataThread dataThread = new DataThread(url);
+            Thread run = new Thread(dataThread);
+            run.start();
+            while(run.isAlive()) {
+                try {
+                    Thread.sleep(1);
+                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+            }
+
+            JSONObject data = dataThread.data;
+
             Integer index = null;
             String[] date = null;
-            String line;
-            JSONObject data;
             try {
-                data = (JSONObject)url.getContent();
-                index = (Integer)data.get("num");
-                if(data.has("date"))
-                    date = ((String)data.get("date")).split(" ");
-            } catch(IOException e) {Log.e("XKCD Reader", "Error while fetching image", e); } //Popup with error
-              catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); } //Popup with error
+                index = data.getInt("num");
+                if(getArguments().getInt(ARG_SECTION_NUMBER) == 3)
+                date = new String[] {
+                        data.getString("day"),
+                        data.getString("month"),
+                        data.getString("year")
+                };
+            } catch(JSONException e) { Log.e("XKCD Reader", "Error while fetching value", e); }
 
             try {
                 url = new URL(protoURL + "/" + (date == null ? index :
                         date[0] + "/" + date[1] + "/" + date[2]));
             } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
 
-            try {
-                data = (JSONObject)url.getContent();
-                parseJSON(data);
-            } catch(IOException e) {Log.e("XKCD Reader", "Error while fetching image", e); } //Popup with error
+            dataThread = new DataThread(url);
+
+            getContent(dataThread.data);
         }
 
-        public void parseJSON(JSONObject data) {
+        private void getContent(JSONObject data) {
+            String title = null;
+            String question = null;
+            String attribute = null;
             String[] content = null;
             String[] layout = null;
             String alt = null;
-            String[] images;
+            Drawable[] images = null;
             try {
-                int value = Integer.parseInt(ARG_SECTION_NUMBER);
+                int value = getArguments().getInt(ARG_SECTION_NUMBER);
                 if(value == 1)
                     alt = (String)data.get("alt");
                 else if(value == 2 || value == 3) {
+                    if(value == 2) {
+                        question = (String)data.get("question");
+                        attribute = (String)data.get("attribute");
+                    }
+                    title = (String)data.get("title");
                     content = ((String)data.get("content")).split("_");
                     layout = ((String)data.get("layout")).split("_");
                 }
 
-                images = ((String)data.get("img")).split("_");
+                images = getImages(((String) data.get("img")).split("_"));
             } catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
 
-
+            TextView textView = (TextView)getActivity().findViewById(R.id.xkcd_view);
+            textView.append(title);
         }
 
-        public Drawable getImage(String img) {
+        private Drawable getImage(String img) {
             URL url = null;
 
             try {
@@ -232,7 +264,7 @@ public class Viewer extends Activity
             return image;
         }
 
-        public Drawable[] getImages(String[] imgs) {
+        private Drawable[] getImages(String[] imgs) {
             Drawable[] images = new Drawable[imgs.length];
             for(int i = 0; i < imgs.length; i++)
                 images[i] = getImage(imgs[i]);
