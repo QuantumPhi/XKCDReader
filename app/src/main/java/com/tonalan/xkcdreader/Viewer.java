@@ -5,6 +5,9 @@ import android.app.Activity;
 import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.FragmentManager;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -15,7 +18,14 @@ import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 import android.widget.ImageView;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -147,27 +157,86 @@ public class Viewer extends Activity
             super.onAttach(activity);
             ((Viewer) activity).onSectionAttached(
                     getArguments().getInt(ARG_SECTION_NUMBER));
+            String protoURL = "https://xkcdapi.heroku.com/api";
             try {
                 switch (Integer.parseInt(ARG_SECTION_NUMBER)) {
                     case 1:
-                        url = new URL("http://www.xkcd.com");
+                        protoURL += "/xkcd";
+                        break;
                     case 2:
-                        url = new URL("http://whatif.xkcd.com");
+                        protoURL += "/whatif";
+                        break;
                     case 3:
-                        url = new URL("http://blog.xkcd.com");
+                        protoURL += "/blog";
+                        break;
                 }
-            } catch(MalformedURLException e) {
-                Log.e("XKCD Reader", "Malformed URL", e);
-                return;
-            }
 
-            URLConnection connection = null;
+                url = new URL(protoURL);
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
+
+            Integer index = null;
+            String[] date = null;
+            String line;
+            JSONObject data;
             try {
-                connection = url.openConnection();
-            } catch(IOException e) { Log.e("XKCD Reader", "Error while opening connection", e); }
+                data = (JSONObject)url.getContent();
+                index = (Integer)data.get("num");
+                if(data.has("date"))
+                    date = ((String)data.get("date")).split(" ");
+            } catch(IOException e) {Log.e("XKCD Reader", "Error while fetching image", e); } //Popup with error
+              catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); } //Popup with error
 
-            connection.
+            try {
+                url = new URL(protoURL + "/" + (date == null ? index :
+                        date[0] + "/" + date[1] + "/" + date[2]));
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
+
+            try {
+                data = (JSONObject)url.getContent();
+                parseJSON(data);
+            } catch(IOException e) {Log.e("XKCD Reader", "Error while fetching image", e); } //Popup with error
+        }
+
+        public void parseJSON(JSONObject data) {
+            String[] content = null;
+            String[] layout = null;
+            String alt = null;
+            String[] images;
+            try {
+                int value = Integer.parseInt(ARG_SECTION_NUMBER);
+                if(value == 1)
+                    alt = (String)data.get("alt");
+                else if(value == 2 || value == 3) {
+                    content = ((String)data.get("content")).split("_");
+                    layout = ((String)data.get("layout")).split("_");
+                }
+
+                images = ((String)data.get("img")).split("_");
+            } catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
+
+
+        }
+
+        public Drawable getImage(String img) {
+            URL url = null;
+
+            try {
+                url = new URL(img);
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+
+            BitmapDrawable image = null;
+            try {
+                image = new BitmapDrawable(BitmapFactory.decodeStream(url.openConnection().getInputStream()));
+            } catch(IOException e) { Log.e("XKCD Reader", "Error while decoding image", e); }
+
+            return image;
+        }
+
+        public Drawable[] getImages(String[] imgs) {
+            Drawable[] images = new Drawable[imgs.length];
+            for(int i = 0; i < imgs.length; i++)
+                images[i] = getImage(imgs[i]);
+            return images;
         }
     }
-
 }
