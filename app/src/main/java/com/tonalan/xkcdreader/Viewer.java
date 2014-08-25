@@ -8,6 +8,7 @@ import android.app.FragmentManager;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -19,6 +20,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import org.apache.http.HttpConnection;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -26,12 +28,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.ExecutionException;
 
 
 public class Viewer extends Activity
-        implements NavigationDrawerFragment.NavigationDrawerCallbacks  {
+        implements NavigationDrawerFragment.NavigationDrawerCallbacks {
 
     /**
      * Fragment managing the behaviors, interactions and presentation of the navigation drawer.
@@ -119,45 +123,35 @@ public class Viewer extends Activity
      * A placeholder fragment containing a simple view.
      */
     public static class PlaceholderFragment extends Fragment {
-        public class DataThread implements Runnable {
-            private URL url;
-            volatile JSONObject data = null;
-
-            public DataThread(String protoURL) {
-                try {
-                    url = new URL(protoURL);
-                } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-            }
-
+        public class DataTask extends AsyncTask<URL, Integer, JSONObject> {
             @Override
-            public void run() {
+            protected JSONObject doInBackground(URL... datasrc) {
+                HttpURLConnection connection;
+                JSONObject data = null;
                 try {
-                    data = new JSONObject((new BufferedReader(new InputStreamReader((InputStream)url.getContent()))).readLine());
-                } catch (IOException e) {
-                    Log.e("XKCD Reader", "Error while fetching data", e);
-                } catch(JSONException e) {
-                    Log.e("XKCD Reader", "Error while parsing JSON", e);
-                } //Popup with error
+                    connection = (HttpURLConnection)datasrc[0].openConnection();
+                    connection.setRequestMethod("GET");
+                    data = new JSONObject((new BufferedReader(new InputStreamReader(connection.getInputStream()))).readLine());
+                } catch (IOException e) { Log.e("XKCD Reader", "Error opening connection", e); }
+                  catch (JSONException e) { Log.e("XKCD Reader", "Error parsing JSON", e); }
+
+                return data;
             }
         }
 
-        public class ImageThread implements Runnable {
-            private URL url;
-            volatile Drawable image = null;
-
-            public ImageThread(String imgURL) {
-                try {
-                    url = new URL(imgURL);
-                } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-            }
-
+        public class ImageTask extends AsyncTask<URL, Integer, Drawable[]> {
             @Override
-            public void run() {
+            protected Drawable[] doInBackground(URL... imgsrc) {
+                Drawable[] images = new Drawable[imgsrc.length];
                 try {
-                    image = new BitmapDrawable(BitmapFactory.decodeStream(url.openStream()));
-                } catch(IOException e) { Log.e("XKCD Reader", "Error while fetching image", e); }
+                    for (int i = 0; i < images.length; i++)
+                        images[i] = new BitmapDrawable(BitmapFactory.decodeStream(imgsrc[i].openStream()));
+                } catch (IOException e) { Log.e("XKCD Reader", "Error while opening stream", e); }
+
+                return images;
             }
         }
+
         /**
          * The fragment argument representing the section number for this
          * fragment.
@@ -181,7 +175,7 @@ public class Viewer extends Activity
 
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
+                                 Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_viewer, container, false);
             return rootView;
         }
@@ -204,61 +198,58 @@ public class Viewer extends Activity
                     break;
             }
 
-            DataThread dataThread = new DataThread(protoURL);
-            Thread run = new Thread(dataThread);
-            run.start();
-            while(run.isAlive()) {
-                try {
-                    Thread.sleep(1);
-                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
-            }
+            JSONObject data = null;
 
-            JSONObject data = dataThread.data;
+            try {
+                data = (new DataTask().execute(new URL(protoURL))).get();
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+              catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+              catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
 
             Integer index = null;
             String[] date = null;
             try {
                 index = data.has("num") ? data.getInt("num") : null;
-                if(getArguments().getInt(ARG_SECTION_NUMBER) == 3)
-                    date = new String[] {
+                if (getArguments().getInt(ARG_SECTION_NUMBER) == 3)
+                    date = new String[]{
                             data.getString("day"),
                             data.getString("month"),
                             data.getString("year")
                     };
-            } catch(JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
+            } catch (JSONException e) {
+                Log.e("XKCD Reader", "Error while reading data", e);
+            }
 
             protoURL += "/" + (date == null ? index :
                     date[0] + "/" + date[1] + "/" + date[2]);
 
-            dataThread = new DataThread(protoURL);
-            run = new Thread(dataThread);
-            run.start();
-            while(run.isAlive()) {
-                try {
-                    Thread.sleep(1);
-                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
-            }
 
-            getContent(dataThread.data);
+            try {
+                data = (new DataTask().execute(new URL(protoURL))).get();
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+            catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+            catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
+
+            getContent(data);
         }
 
         private void getContent(JSONObject data) {
             String title = null,
-                question = null,
-               attribute = null,
-                     alt = null;
+                    question = null,
+                    attribute = null,
+                    alt = null;
 
             String[] content = null,
-                      layout = null;
+                    layout = null;
 
             Drawable[] images = null;
 
             try {
                 int value = getArguments().getInt(ARG_SECTION_NUMBER);
-                if(value == 1)
+                if (value == 1)
                     alt = data.getString("alt");
-                else if(value == 2 || value == 3) {
-                    if(value == 2) {
+                else if (value == 2 || value == 3) {
+                    if (value == 2) {
                         question = data.getString("question");
                         attribute = data.getString("attribute");
                     }
@@ -268,32 +259,21 @@ public class Viewer extends Activity
 
                 title = data.getString("title");
 
-                String[] imgURL = new String[] { data.getString("img") };
+                String[] imgURL = new String[]{data.getString("img")};
                 imgURL = imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL;
                 images = getImages(imgURL);
-            } catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
-
-            TextView textView = (TextView)getActivity().findViewById(R.id.xkcd_text);
-            textView.append(title);
-        }
-
-        private Drawable getImage(String img) {
-            ImageThread imageThread = new ImageThread(img);
-            Thread run = new Thread(imageThread);
-            run.start();
-            while(run.isAlive()) {
-                try {
-                    Thread.sleep(1);
-                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+            } catch (JSONException e) {
+                Log.e("XKCD Reader", "Error while parsing JSON", e);
             }
 
-            return imageThread.image;
+            Log.i("INFO", title);
+
+            TextView textView = (TextView) getActivity().findViewById(R.id.xkcd_text);
+            textView.append(title);
         }
 
         private Drawable[] getImages(String[] imgs) {
             Drawable[] images = new Drawable[imgs.length];
-            for(int i = 0; i < imgs.length; i++)
-                images[i] = getImage(imgs[i]);
             return images;
         }
     }
