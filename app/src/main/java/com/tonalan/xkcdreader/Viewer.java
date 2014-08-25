@@ -22,7 +22,10 @@ import android.widget.TextView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 
@@ -120,17 +123,40 @@ public class Viewer extends Activity
             private URL url;
             volatile JSONObject data = null;
 
-            public DataThread(URL _url) {
-                url = _url;
+            public DataThread(String protoURL) {
+                try {
+                    url = new URL(protoURL);
+                } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
             }
 
             @Override
             public void run() {
                 try {
-                    data = (JSONObject) url.getContent();
+                    data = new JSONObject((new BufferedReader(new InputStreamReader((InputStream)url.getContent()))).readLine());
                 } catch (IOException e) {
-                    Log.e("XKCD Reader", "Error while fetching image", e);
+                    Log.e("XKCD Reader", "Error while fetching data", e);
+                } catch(JSONException e) {
+                    Log.e("XKCD Reader", "Error while parsing JSON", e);
                 } //Popup with error
+            }
+        }
+
+        public class ImageThread implements Runnable {
+            private URL url;
+            volatile Drawable image = null;
+
+            public ImageThread(String imgURL) {
+                Log.i("INFO", imgURL);
+                try {
+                    url = new URL(imgURL);
+                } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+            }
+
+            @Override
+            public void run() {
+                try {
+                    image = new BitmapDrawable(BitmapFactory.decodeStream(url.openStream()));
+                } catch(IOException e) { Log.e("XKCD Reader", "Error while fetching image", e); }
             }
         }
         /**
@@ -138,10 +164,6 @@ public class Viewer extends Activity
          * fragment.
          */
         private static final String ARG_SECTION_NUMBER = "section_number";
-
-        private URL url;
-        private ImageView drawing;
-        private int current;
 
         /**
          * Returns a new instance of this fragment for the given section
@@ -170,24 +192,20 @@ public class Viewer extends Activity
             super.onAttach(activity);
             ((Viewer) activity).onSectionAttached(
                     getArguments().getInt(ARG_SECTION_NUMBER));
-            String protoURL = "https://xkcdapi.heroku.com/api";
-            try {
-                switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
-                    case 1:
-                        protoURL += "/xkcd";
-                        break;
-                    case 2:
-                        protoURL += "/whatif";
-                        break;
-                    case 3:
-                        protoURL += "/blog";
-                        break;
-                }
+            String protoURL = "http://xkcdapi.heroku.com/api";
+            switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
+                case 1:
+                    protoURL += "/xkcd";
+                    break;
+                case 2:
+                    protoURL += "/whatif";
+                    break;
+                case 3:
+                    protoURL += "/blog";
+                    break;
+            }
 
-                url = new URL(protoURL);
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
-
-            DataThread dataThread = new DataThread(url);
+            DataThread dataThread = new DataThread(protoURL);
             Thread run = new Thread(dataThread);
             run.start();
             while(run.isAlive()) {
@@ -201,21 +219,26 @@ public class Viewer extends Activity
             Integer index = null;
             String[] date = null;
             try {
-                index = data.getInt("num");
+                index = data.has("num") ? data.getInt("num") : null;
                 if(getArguments().getInt(ARG_SECTION_NUMBER) == 3)
-                date = new String[] {
-                        data.getString("day"),
-                        data.getString("month"),
-                        data.getString("year")
-                };
-            } catch(JSONException e) { Log.e("XKCD Reader", "Error while fetching value", e); }
+                    date = new String[] {
+                            data.getString("day"),
+                            data.getString("month"),
+                            data.getString("year")
+                    };
+            } catch(JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
 
-            try {
-                url = new URL(protoURL + "/" + (date == null ? index :
-                        date[0] + "/" + date[1] + "/" + date[2]));
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); } //Popup with error
+            protoURL += "/" + (date == null ? index :
+                    date[0] + "/" + date[1] + "/" + date[2]);
 
-            dataThread = new DataThread(url);
+            dataThread = new DataThread(protoURL);
+            run = new Thread(dataThread);
+            run.start();
+            while(run.isAlive()) {
+                try {
+                    Thread.sleep(1);
+                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+            }
 
             getContent(dataThread.data);
         }
@@ -231,18 +254,18 @@ public class Viewer extends Activity
             try {
                 int value = getArguments().getInt(ARG_SECTION_NUMBER);
                 if(value == 1)
-                    alt = (String)data.get("alt");
+                    alt = data.getString("alt");
                 else if(value == 2 || value == 3) {
                     if(value == 2) {
-                        question = (String)data.get("question");
-                        attribute = (String)data.get("attribute");
+                        question = data.getString("question");
+                        attribute = data.getString("attribute");
                     }
                     title = (String)data.get("title");
-                    content = ((String)data.get("content")).split("_");
-                    layout = ((String)data.get("layout")).split("_");
+                    content = data.getString("content").split("|");
+                    layout = data.getString("layout").split("|");
                 }
 
-                images = getImages(((String) data.get("img")).split("_"));
+                images = getImages(((String) data.get("img")).split("|"));
             } catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
 
             TextView textView = (TextView)getActivity().findViewById(R.id.xkcd_view);
@@ -250,18 +273,16 @@ public class Viewer extends Activity
         }
 
         private Drawable getImage(String img) {
-            URL url = null;
+            ImageThread imageThread = new ImageThread(img);
+            Thread run = new Thread(imageThread);
+            run.start();
+            while(run.isAlive()) {
+                try {
+                    Thread.sleep(1);
+                } catch(InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+            }
 
-            try {
-                url = new URL(img);
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-
-            BitmapDrawable image = null;
-            try {
-                image = new BitmapDrawable(BitmapFactory.decodeStream(url.openConnection().getInputStream()));
-            } catch(IOException e) { Log.e("XKCD Reader", "Error while decoding image", e); }
-
-            return image;
+            return imageThread.image;
         }
 
         private Drawable[] getImages(String[] imgs) {
