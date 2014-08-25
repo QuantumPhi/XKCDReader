@@ -146,7 +146,6 @@ public class Viewer extends Activity
             volatile Drawable image = null;
 
             public ImageThread(String imgURL) {
-                Log.i("INFO", imgURL);
                 try {
                     url = new URL(imgURL);
                 } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
@@ -244,13 +243,16 @@ public class Viewer extends Activity
         }
 
         private void getContent(JSONObject data) {
-            String title = null;
-            String question = null;
-            String attribute = null;
-            String[] content = null;
-            String[] layout = null;
-            String alt = null;
+            String title = null,
+                question = null,
+               attribute = null,
+                     alt = null;
+
+            String[] content = null,
+                      layout = null;
+
             Drawable[] images = null;
+
             try {
                 int value = getArguments().getInt(ARG_SECTION_NUMBER);
                 if(value == 1)
@@ -260,15 +262,18 @@ public class Viewer extends Activity
                         question = data.getString("question");
                         attribute = data.getString("attribute");
                     }
-                    title = (String)data.get("title");
                     content = data.getString("content").split("|");
                     layout = data.getString("layout").split("|");
                 }
 
-                images = getImages(((String) data.get("img")).split("|"));
+                title = data.getString("title");
+
+                String[] imgURL = new String[] { data.getString("img") };
+                imgURL = imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL;
+                images = getImages(imgURL);
             } catch(JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
 
-            TextView textView = (TextView)getActivity().findViewById(R.id.xkcd_view);
+            TextView textView = (TextView)getActivity().findViewById(R.id.xkcd_text);
             textView.append(title);
         }
 
