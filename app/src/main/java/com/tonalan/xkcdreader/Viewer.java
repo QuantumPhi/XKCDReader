@@ -123,7 +123,7 @@ public class Viewer extends Activity
      * A placeholder fragment containing a simple view.
      */
     public static class PlaceholderFragment extends Fragment {
-        public class DataTask extends AsyncTask<URL, Integer, JSONObject> {
+        public class DataTask extends AsyncTask<URL, Void, JSONObject> {
             @Override
             protected JSONObject doInBackground(URL... datasrc) {
                 HttpURLConnection connection;
@@ -137,9 +137,24 @@ public class Viewer extends Activity
 
                 return data;
             }
+
+            @Override
+            protected void onPostExecute(JSONObject data) {
+                String[] date = null;
+                try {
+                    index = data.getInt("num");
+                    date = new String[]{
+                            data.getString("day"),
+                            data.getString("month"),
+                            data.getString("year")
+                    };
+                } catch (JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
+
+                parseContent(data);
+            }
         }
 
-        public class ImageTask extends AsyncTask<URL, Integer, Drawable[]> {
+        public class ImageTask extends AsyncTask<URL, Void, Drawable[]> {
             @Override
             protected Drawable[] doInBackground(URL... imgsrc) {
                 Drawable[] images = new Drawable[imgsrc.length];
@@ -149,6 +164,34 @@ public class Viewer extends Activity
                 } catch (IOException e) { Log.e("XKCD Reader", "Error while opening stream", e); }
 
                 return images;
+            }
+
+            @Override
+            protected void onPostExecute(Drawable[] images) {
+                ImageView imageView = null;
+                if(layout != null) {
+                    TextView textView = new TextView(getActivity().getApplicationContext());
+                    int imgIndex = 0;
+
+                    for(int i = 0; i < layout.length; i++) {
+                        if (layout[i].equals("p"))
+                            textView.append(content[i] + "\n");
+                        else if (layout[i].equals("img")) {
+                            (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[imgIndex]);
+                            imgIndex++;
+
+                            FrameLayout frameLayout = (FrameLayout) getActivity().findViewById(R.id.container);
+                            frameLayout.addView(textView);
+                            frameLayout.addView(imageView);
+
+                            (textView = new TextView(getActivity().getApplicationContext())).append("\n");
+                        }
+                    }
+                } else {
+                    (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[0]);
+                    imageView.setOnClickListener(new OnClickToast(alt));
+                    ((FrameLayout)getActivity().findViewById(R.id.container)).addView(imageView);
+                }
             }
         }
 
@@ -169,6 +212,17 @@ public class Viewer extends Activity
          */
         private static final String ARG_SECTION_NUMBER = "section_number";
         private Integer index;
+
+        private String title = null,
+                    question = null,
+                   attribute = null,
+                         alt = null;
+
+        private String[] content = null,
+                          layout = null,
+                            date = null;
+
+        private Drawable[] images = null;
 
         /**
          * Returns a new instance of this fragment for the given section
@@ -210,39 +264,14 @@ public class Viewer extends Activity
                     break;
             }
 
-            JSONObject data = null;
+            DataTask data = null;
 
             try {
-                data = (new DataTask().execute(new URL(protoURL))).get();
+                (data = new DataTask()).execute(new URL(protoURL));
             } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-              catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
-              catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
-
-            String[] date = null;
-            try {
-                index = data.getInt("num");
-                if (getArguments().getInt(ARG_SECTION_NUMBER) == 3)
-                    date = new String[]{
-                            data.getString("day"),
-                            data.getString("month"),
-                            data.getString("year")
-                    };
-            } catch (JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
-
-            parseContent(data);
         }
 
         private void parseContent(JSONObject data) {
-            String title = null,
-                    question = null,
-                    attribute = null,
-                    alt = null;
-
-            String[] content = null,
-                    layout = null;
-
-            Drawable[] images = null;
-
             try {
                 int value = getArguments().getInt(ARG_SECTION_NUMBER);
                 if (value == 1)
@@ -261,34 +290,7 @@ public class Viewer extends Activity
                 String[] imgURL = new String[]{data.getString("img")};
                 imgURL = imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL;
                 images = getImages(imgURL);
-            } catch (JSONException e) {
-                Log.e("XKCD Reader", "Error while parsing JSON", e);
-            }
-
-            ImageView imageView = null;
-            if(layout != null) {
-                TextView textView = new TextView(getActivity().getApplicationContext());
-                int imgIndex = 0;
-
-                for (String item : layout) {
-                    if (item.equals("p"))
-                        textView.append(item + "\n");
-                    else if (item.equals("img")) {
-                        (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[imgIndex]);
-                        imgIndex++;
-
-                        FrameLayout frameLayout = (FrameLayout) getActivity().findViewById(R.id.container);
-                        frameLayout.addView(textView);
-                        frameLayout.addView(imageView);
-
-                        (textView = new TextView(getActivity().getApplicationContext())).append("\n");
-                    }
-                }
-            } else {
-                (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[0]);
-                imageView.setOnClickListener(new OnClickToast(alt));
-                ((FrameLayout)getActivity().findViewById(R.id.container)).addView(imageView);
-            }
+            } catch (JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
         }
 
         private Drawable[] getImages(String[] imgs) {
