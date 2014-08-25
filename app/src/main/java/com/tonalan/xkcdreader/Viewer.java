@@ -17,16 +17,16 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import org.apache.http.HttpConnection;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -152,11 +152,23 @@ public class Viewer extends Activity
             }
         }
 
+        public class OnClickToast implements View.OnClickListener {
+            String altText;
+
+            public OnClickToast(String _altText) { altText = _altText; }
+
+            @Override
+            public void onClick(View view) {
+                Toast.makeText(getActivity().getApplicationContext(), altText, Toast.LENGTH_LONG);
+            }
+        }
+
         /**
          * The fragment argument representing the section number for this
          * fragment.
          */
         private static final String ARG_SECTION_NUMBER = "section_number";
+        private Integer index;
 
         /**
          * Returns a new instance of this fragment for the given section
@@ -206,34 +218,21 @@ public class Viewer extends Activity
               catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
               catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
 
-            Integer index = null;
             String[] date = null;
             try {
-                index = data.has("num") ? data.getInt("num") : null;
+                index = data.getInt("num");
                 if (getArguments().getInt(ARG_SECTION_NUMBER) == 3)
                     date = new String[]{
                             data.getString("day"),
                             data.getString("month"),
                             data.getString("year")
                     };
-            } catch (JSONException e) {
-                Log.e("XKCD Reader", "Error while reading data", e);
-            }
+            } catch (JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
 
-            protoURL += "/" + (date == null ? index :
-                    date[0] + "/" + date[1] + "/" + date[2]);
-
-
-            try {
-                data = (new DataTask().execute(new URL(protoURL))).get();
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-            catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
-            catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
-
-            getContent(data);
+            parseContent(data);
         }
 
-        private void getContent(JSONObject data) {
+        private void parseContent(JSONObject data) {
             String title = null,
                     question = null,
                     attribute = null,
@@ -266,14 +265,42 @@ public class Viewer extends Activity
                 Log.e("XKCD Reader", "Error while parsing JSON", e);
             }
 
-            Log.i("INFO", title);
+            ImageView imageView = null;
+            if(layout != null) {
+                TextView textView = new TextView(getActivity().getApplicationContext());
+                int imgIndex = 0;
 
-            TextView textView = (TextView) getActivity().findViewById(R.id.xkcd_text);
-            textView.append(title);
+                for (String item : layout) {
+                    if (item.equals("p"))
+                        textView.append(item + "\n");
+                    else if (item.equals("img")) {
+                        (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[imgIndex]);
+                        imgIndex++;
+
+                        FrameLayout frameLayout = (FrameLayout) getActivity().findViewById(R.id.container);
+                        frameLayout.addView(textView);
+                        frameLayout.addView(imageView);
+
+                        (textView = new TextView(getActivity().getApplicationContext())).append("\n");
+                    }
+                }
+            } else {
+                (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[0]);
+                imageView.setOnClickListener(new OnClickToast(alt));
+                ((FrameLayout)getActivity().findViewById(R.id.container)).addView(imageView);
+            }
         }
 
         private Drawable[] getImages(String[] imgs) {
             Drawable[] images = new Drawable[imgs.length];
+            for(int i = 0; i < imgs.length; i++) {
+                try {
+                    images[i] = (new ImageTask().execute(new URL(imgs[i]))).get()[0];
+                } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+                  catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+                  catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
+
+            }
             return images;
         }
     }
