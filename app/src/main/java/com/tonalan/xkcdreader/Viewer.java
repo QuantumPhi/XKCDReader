@@ -10,15 +10,23 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.view.PagerAdapter;
+import android.support.v4.view.ViewPager;
+import android.text.Layout;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -168,6 +176,7 @@ public class Viewer extends Activity
 
             @Override
             protected void onPostExecute(Drawable[] images) {
+                FrameLayout frameLayout = (FrameLayout)getActivity().findViewById(R.id.container);
                 ImageView imageView = null;
                 if(layout != null) {
                     TextView textView = new TextView(getActivity().getApplicationContext());
@@ -180,29 +189,14 @@ public class Viewer extends Activity
                             (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[imgIndex]);
                             imgIndex++;
 
-                            FrameLayout frameLayout = (FrameLayout) getActivity().findViewById(R.id.container);
                             frameLayout.addView(textView);
                             frameLayout.addView(imageView);
-
-                            (textView = new TextView(getActivity().getApplicationContext())).append("\n");
                         }
                     }
                 } else {
                     (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[0]);
-                    imageView.setOnClickListener(new OnClickToast(alt));
-                    ((FrameLayout)getActivity().findViewById(R.id.container)).addView(imageView);
+                    frameLayout.addView(imageView);
                 }
-            }
-        }
-
-        public class OnClickToast implements View.OnClickListener {
-            String altText;
-
-            public OnClickToast(String _altText) { altText = _altText; }
-
-            @Override
-            public void onClick(View view) {
-                Toast.makeText(getActivity().getApplicationContext(), altText, Toast.LENGTH_LONG);
             }
         }
 
@@ -236,9 +230,6 @@ public class Viewer extends Activity
             return fragment;
         }
 
-        public PlaceholderFragment() {
-        }
-
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
@@ -251,6 +242,32 @@ public class Viewer extends Activity
             super.onAttach(activity);
             ((Viewer) activity).onSectionAttached(
                     getArguments().getInt(ARG_SECTION_NUMBER));
+
+            String protoURL = genURL();
+
+            try {
+               new DataTask().execute(new URL(protoURL));
+            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+        }
+
+        private String genURL(int number) {
+            String protoURL = "http://xkcdapi.heroku.com/api";
+            switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
+                case 1:
+                    protoURL += "/xkcd" + number;
+                    break;
+                case 2:
+                    protoURL += "/whatif" + number;
+                    break;
+                case 3:
+                    protoURL += "/blog" + number;
+                    break;
+            }
+
+            return protoURL;
+        }
+
+        private String genURL() {
             String protoURL = "http://xkcdapi.heroku.com/api";
             switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
                 case 1:
@@ -264,11 +281,7 @@ public class Viewer extends Activity
                     break;
             }
 
-            DataTask data = null;
-
-            try {
-                (data = new DataTask()).execute(new URL(protoURL));
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
+            return protoURL;
         }
 
         private void parseContent(JSONObject data) {
