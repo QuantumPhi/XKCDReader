@@ -1,4 +1,4 @@
-package com.tonalan.xkcdreader;
+package com.tonalan.xkcdreader.data;
 
 import android.app.Activity;
 import android.app.Fragment;
@@ -15,6 +15,9 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.tonalan.xkcdreader.R;
+import com.tonalan.xkcdreader.Viewer;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -26,7 +29,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.concurrent.ExecutionException;
 
-public class DataFragment extends Fragment {
+public abstract class DataFragment extends Fragment {
 
     public class DataTask extends AsyncTask<URL, Void, JSONObject> {
         @Override
@@ -97,22 +100,32 @@ public class DataFragment extends Fragment {
         }
     }
 
-    private static final String ARG_SECTION_NUMBER = "section_number";
-    private Integer index;
+    protected static final String ARG_SECTION_NUMBER = "section_number";
+    protected Integer index;
 
-    private String title = null,
+    protected String title = null,
             question = null,
             attribute = null,
             alt = null;
 
-    private String[] content = null,
-            layout = null,
-            date = null;
+    protected String[] content = null,
+            layout = null;
 
-    private Drawable[] images = null;
+    protected Drawable[] images = null;
 
     public static DataFragment newInstance(int sectionNumber) {
-        DataFragment fragment = new DataFragment();
+        DataFragment fragment = null;
+        switch(sectionNumber) {
+            case 1:
+                fragment = new XKCDFragment();
+                break;
+            case 2:
+                fragment = new WhatIfFragment();
+                break;
+            case 3:
+                fragment = new BlogFragment();
+                break;
+        }
         Bundle args = new Bundle();
         args.putInt(ARG_SECTION_NUMBER, sectionNumber);
         fragment.setArguments(args);
@@ -173,29 +186,9 @@ public class DataFragment extends Fragment {
         return protoURL;
     }
 
-    private void parseContent(JSONObject data) {
-        try {
-            int value = getArguments().getInt(ARG_SECTION_NUMBER);
-            if (value == 1)
-                alt = data.getString("alt");
-            else if (value == 2 || value == 3) {
-                if (value == 2) {
-                    question = data.getString("question");
-                    attribute = data.getString("attribute");
-                }
-                content = data.getString("content").split("|");
-                layout = data.getString("layout").split("|");
-            }
+    protected abstract void parseContent(JSONObject data);
 
-            title = data.getString("title");
-
-            String[] imgURL = new String[]{data.getString("img")};
-            imgURL = imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL;
-            images = getImages(imgURL);
-        } catch (JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
-    }
-
-    private Drawable[] getImages(String[] imgs) {
+    protected Drawable[] getImages(String[] imgs) {
         Drawable[] images = new Drawable[imgs.length];
         for(int i = 0; i < imgs.length; i++) {
             try {
