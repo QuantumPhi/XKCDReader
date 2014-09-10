@@ -10,7 +10,8 @@ public class XKCDFragment extends DataFragment {
     @Override
     protected void parseContent(JSONObject data) {
         try {
-            alt = data.getString("alt");
+            String[] tempAlt = new String[]{data.getString("img")};
+            alt = tempAlt[0].contains("|") ? tempAlt[0].split("|") : tempAlt;
 
             title = data.getString("title");
 

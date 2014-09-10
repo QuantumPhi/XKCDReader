@@ -1,27 +1,31 @@
 package com.tonalan.xkcdreader;
 
-import android.app.Activity;
-
 import android.app.ActionBar;
+import android.app.Activity;
 import android.app.FragmentManager;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.widget.DrawerLayout;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.support.v4.widget.DrawerLayout;
+import android.widget.Toast;
 
 import com.tonalan.xkcdreader.data.DataFragment;
 
 
-public class Viewer extends Activity
+public class Viewer extends FragmentActivity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
 
     private NavigationDrawerFragment mNavigationDrawerFragment;
     private CharSequence mTitle;
 
+    public static Toast toast;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_viewer);
+        toast = new Toast(getApplicationContext());
 
         mNavigationDrawerFragment = (NavigationDrawerFragment)
                 getFragmentManager().findFragmentById(R.id.navigation_drawer);
@@ -36,9 +40,8 @@ public class Viewer extends Activity
     @Override
     public void onNavigationDrawerItemSelected(int position) {
         // update the main content by replacing fragments
-        FragmentManager fragmentManager = getFragmentManager();
-        fragmentManager.beginTransaction()
-                .replace(R.id.container, DataFragment.newInstance(position + 1))
+        getFragmentManager().beginTransaction()
+                .replace(R.id.data, DataFragment.newInstance(position + 1))
                 .commit();
     }
 

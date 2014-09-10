@@ -76,7 +76,7 @@ public abstract class DataFragment extends Fragment {
 
         @Override
         protected void onPostExecute(Drawable[] images) {
-            FrameLayout frameLayout = (FrameLayout)getActivity().findViewById(R.id.container);
+            FrameLayout frameLayout = (FrameLayout)getActivity().findViewById(R.id.data);
             ImageView imageView = null;
             if(layout != null) {
                 TextView textView = new TextView(getActivity().getApplicationContext());
@@ -86,7 +86,7 @@ public abstract class DataFragment extends Fragment {
                     if (layout[i].equals("p"))
                         textView.append(content[i] + "\n");
                     else if (layout[i].equals("img")) {
-                        (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[imgIndex]);
+                        imageView = new XKCDImageView(getActivity().getApplicationContext(), (BitmapDrawable)images[imgIndex], alt[imgIndex]);
                         imgIndex++;
 
                         frameLayout.addView(textView);
@@ -105,11 +105,11 @@ public abstract class DataFragment extends Fragment {
 
     protected String title = null,
             question = null,
-            attribute = null,
-            alt = null;
+            attribute = null;
 
     protected String[] content = null,
-            layout = null;
+            layout = null,
+            alt = null;
 
     protected Drawable[] images = null;
 
@@ -135,7 +135,7 @@ public abstract class DataFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.fragment_viewer, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_data, container, false);
         return rootView;
     }
 

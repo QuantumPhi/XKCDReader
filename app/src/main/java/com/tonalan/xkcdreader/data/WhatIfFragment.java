@@ -10,7 +10,9 @@ public class WhatIfFragment extends DataFragment {
     @Override
     protected void parseContent(JSONObject data) {
         try {
-            int value = getArguments().getInt(ARG_SECTION_NUMBER);
+            String[] tempAlt = new String[]{data.getString("img")};
+            alt = tempAlt[0].contains("|") ? tempAlt[0].split("|") : tempAlt;
+
             question = data.getString("question");
             attribute = data.getString("attribute");
             content = data.getString("content").split("|");
@@ -19,8 +21,7 @@ public class WhatIfFragment extends DataFragment {
             title = data.getString("title");
 
             String[] imgURL = new String[]{data.getString("img")};
-            imgURL = imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL;
-            images = getImages(imgURL);
+            images = getImages(imgURL[0].contains("|") ? imgURL[0].split("|") : imgURL);
         } catch (JSONException e) { Log.e("XKCD Reader", "Error while parsing JSON", e); }
     }
 }
