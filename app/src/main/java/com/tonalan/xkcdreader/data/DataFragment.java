@@ -153,7 +153,7 @@ public abstract class DataFragment extends Fragment {
     }
 
     private String genURL(int number) {
-        String protoURL = "http://xkcdapi.heroku.com/api";
+        String protoURL = "http://xkcdapi.herokuapp.com/api";
         switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
             case 1:
                 protoURL += "/xkcd" + number;
