@@ -50,11 +50,6 @@ public abstract class DataFragment extends Fragment {
             String[] date = null;
             try {
                 index = data.getInt("num");
-                date = new String[]{
-                        data.getString("day"),
-                        data.getString("month"),
-                        data.getString("year")
-                };
             } catch (JSONException e) { Log.e("XKCD Reader", "Error while reading data", e); }
 
             parseContent(data);
@@ -187,12 +182,13 @@ public abstract class DataFragment extends Fragment {
 
     protected abstract void parseContent(JSONObject data);
 
-    protected Bitmap[] getImages(String[] imgs) {
-        Bitmap[] images = new Bitmap[imgs.length];
-        URL[] imgsrc = new URL[imgs.length];
+    protected Bitmap[] getImages(String[] imgurl) {
+        Bitmap[] images = new Bitmap[imgurl.length];
+        URL[] imgsrc = new URL[imgurl.length];
         try {
-            for (int i = 0; i < imgs.length; i++)
-                imgsrc[i] = new URL(imgs[i]);
+            for (int i = 0; i < imgurl.length; i++) {
+                imgsrc[i] = new URL(imgurl[i]);
+            }
         } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
 
         try {
