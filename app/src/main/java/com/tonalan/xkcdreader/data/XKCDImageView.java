@@ -1,7 +1,7 @@
 package com.tonalan.xkcdreader.data;
 
 import android.content.Context;
-import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Bitmap;
 import android.widget.Toast;
 
 import it.sephiroth.android.library.imagezoom.ImageViewTouch;
@@ -10,13 +10,13 @@ public class XKCDImageView extends ImageViewTouch {
 
     private String text;
 
-    public XKCDImageView(Context context, BitmapDrawable image,  String _text) {
+    public XKCDImageView(Context context, Bitmap image,  String _text) {
         super(context);
 
         text = _text;
 
+        setImageBitmap(image);
         setDisplayType(DisplayType.FIT_TO_SCREEN);
-        setImageDrawable(image);
         setSingleTapListener(new OnImageViewTouchSingleTapListener() {
             @Override
             public void onSingleTapConfirmed() {

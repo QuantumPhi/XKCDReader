@@ -2,8 +2,8 @@ package com.tonalan.xkcdreader.data;
 
 import android.app.Activity;
 import android.app.Fragment;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -61,20 +61,20 @@ public abstract class DataFragment extends Fragment {
         }
     }
 
-    public class ImageTask extends AsyncTask<URL, Void, Drawable[]> {
+    public class ImageTask extends AsyncTask<URL, Void, Bitmap[]> {
         @Override
-        protected Drawable[] doInBackground(URL... imgsrc) {
-            Drawable[] images = new Drawable[imgsrc.length];
+        protected Bitmap[] doInBackground(URL... imgsrc) {
+            Bitmap[] images = new Bitmap[imgsrc.length];
             try {
                 for (int i = 0; i < images.length; i++)
-                    images[i] = new BitmapDrawable(BitmapFactory.decodeStream(imgsrc[i].openStream()));
+                    images[i] = BitmapFactory.decodeStream(imgsrc[i].openStream());
             } catch (IOException e) { Log.e("XKCD Reader", "Error while opening stream", e); }
 
             return images;
         }
 
         @Override
-        protected void onPostExecute(Drawable[] images) {
+        protected void onPostExecute(Bitmap[] images) {
             FrameLayout frameLayout = (FrameLayout)getActivity().findViewById(R.id.data);
             XKCDImageView imageView = null;
             if(layout != null) {
@@ -85,7 +85,7 @@ public abstract class DataFragment extends Fragment {
                     if (layout[i].equals("p"))
                         textView.append(content[i] + "\n");
                     else if (layout[i].equals("img")) {
-                        imageView = new XKCDImageView(getActivity().getApplicationContext(), (BitmapDrawable)images[imgIndex], alt[imgIndex]);
+                        imageView = new XKCDImageView(getActivity().getApplicationContext(), images[imgIndex], alt[imgIndex]);
                         imgIndex++;
 
                         frameLayout.addView(textView);
@@ -93,7 +93,7 @@ public abstract class DataFragment extends Fragment {
                     }
                 }
             } else {
-                imageView = new XKCDImageView(getActivity().getApplicationContext(), (BitmapDrawable)images[0], alt[0]);
+                imageView = new XKCDImageView(getActivity().getApplicationContext(), images[0], alt[0]);
                 frameLayout.addView(imageView);
             }
         }
@@ -110,7 +110,7 @@ public abstract class DataFragment extends Fragment {
             layout = null,
             alt = null;
 
-    protected Drawable[] images = null;
+    protected Bitmap[] images = null;
 
     public static DataFragment newInstance(int sectionNumber) {
         DataFragment fragment = null;
@@ -169,7 +169,7 @@ public abstract class DataFragment extends Fragment {
     }
 
     private String genURL() {
-        String protoURL = "http://xkcdapi.heroku.com/api";
+        String protoURL = "http://xkcdapi.herokuapp.com/api";
         switch (getArguments().getInt(ARG_SECTION_NUMBER)) {
             case 1:
                 protoURL += "/xkcd";
@@ -187,16 +187,19 @@ public abstract class DataFragment extends Fragment {
 
     protected abstract void parseContent(JSONObject data);
 
-    protected Drawable[] getImages(String[] imgs) {
-        Drawable[] images = new Drawable[imgs.length];
-        for(int i = 0; i < imgs.length; i++) {
-            try {
-                images[i] = (new ImageTask().execute(new URL(imgs[i]))).get()[0];
-            } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
-            catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
-            catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
+    protected Bitmap[] getImages(String[] imgs) {
+        Bitmap[] images = new Bitmap[imgs.length];
+        URL[] imgsrc = new URL[imgs.length];
+        try {
+            for (int i = 0; i < imgs.length; i++)
+                imgsrc[i] = new URL(imgs[i]);
+        } catch(MalformedURLException e) { Log.e("XKCD Reader", "Malformed URL", e); }
 
-        }
+        try {
+            images = new ImageTask().execute(imgsrc).get();
+        } catch (InterruptedException e) { Log.e("XKCD Reader", "Thread interrupted", e); }
+          catch (ExecutionException e) { Log.e("XKCD Reader", "Error executing thread", e); }
+
         return images;
     }
 }
