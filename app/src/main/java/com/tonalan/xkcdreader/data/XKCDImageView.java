@@ -16,15 +16,14 @@ public class XKCDImageView extends ImageViewTouch {
     public XKCDImageView(Context context, BitmapDrawable image,  String _text) {
         super(context);
 
-        Log.i("INFO", "Image created: " + text);
-
         text = _text;
 
+        setDisplayType(DisplayType.FIT_TO_SCREEN);
         setImageDrawable(image);
         setSingleTapListener(new OnImageViewTouchSingleTapListener() {
             @Override
             public void onSingleTapConfirmed() {
-                Viewer.toast.makeText(getContext(), text, Toast.LENGTH_LONG);
+                Toast.makeText(getContext(), text, Toast.LENGTH_LONG).show();
             }
         });
     }

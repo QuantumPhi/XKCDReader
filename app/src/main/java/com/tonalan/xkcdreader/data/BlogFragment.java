@@ -10,7 +10,7 @@ public class BlogFragment extends DataFragment {
     @Override
     protected void parseContent(JSONObject data) {
         try {
-            String[] tempAlt = new String[]{data.getString("img")};
+            String[] tempAlt = new String[]{data.getString("alt")};
             alt = tempAlt[0].contains("|") ? tempAlt[0].split("|") : tempAlt;
 
             content = data.getString("content").split("|");
