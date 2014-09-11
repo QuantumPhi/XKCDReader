@@ -2,10 +2,7 @@ package com.tonalan.xkcdreader.data;
 
 import android.content.Context;
 import android.graphics.drawable.BitmapDrawable;
-import android.util.Log;
 import android.widget.Toast;
-
-import com.tonalan.xkcdreader.Viewer;
 
 import it.sephiroth.android.library.imagezoom.ImageViewTouch;
 
