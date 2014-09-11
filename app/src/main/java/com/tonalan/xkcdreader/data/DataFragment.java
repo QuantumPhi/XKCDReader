@@ -77,7 +77,7 @@ public abstract class DataFragment extends Fragment {
         @Override
         protected void onPostExecute(Drawable[] images) {
             FrameLayout frameLayout = (FrameLayout)getActivity().findViewById(R.id.data);
-            ImageView imageView = null;
+            XKCDImageView imageView = null;
             if(layout != null) {
                 TextView textView = new TextView(getActivity().getApplicationContext());
                 int imgIndex = 0;
@@ -94,7 +94,7 @@ public abstract class DataFragment extends Fragment {
                     }
                 }
             } else {
-                (imageView = new ImageView(getActivity().getApplicationContext())).setImageDrawable(images[0]);
+                imageView = new XKCDImageView(getActivity().getApplicationContext(), (BitmapDrawable)images[0], alt[0]);
                 frameLayout.addView(imageView);
             }
         }

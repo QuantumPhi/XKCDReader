@@ -2,6 +2,7 @@ package com.tonalan.xkcdreader.data;
 
 import android.content.Context;
 import android.graphics.drawable.BitmapDrawable;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.tonalan.xkcdreader.Viewer;
@@ -14,6 +15,8 @@ public class XKCDImageView extends ImageViewTouch {
 
     public XKCDImageView(Context context, BitmapDrawable image,  String _text) {
         super(context);
+
+        Log.i("INFO", "Image created: " + text);
 
         text = _text;
 
